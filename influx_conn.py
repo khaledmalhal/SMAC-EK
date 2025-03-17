@@ -1,11 +1,13 @@
 import influxdb_client, os, time, sys, socket, time
 from influxdb_client import InfluxDBClient, Point, WritePrecision
 from influxdb_client.client.write_api import SYNCHRONOUS
+from dotenv import load_dotenv
 
-token = os.environ.get("INFLUXDB_TOKEN")
+load_dotenv()
+token = os.getenv("INFLUXDB_TOKEN")
 org = "EPSEVG" #your organization
 url = "http://localhost:8086"
-bucket = "SMAC-KE" #your bucket
+bucket = "SMAC-EK" #your bucket
 
 def main():
     try:
