@@ -74,7 +74,7 @@ void loop() {
   char ir_data[50];
   bool IR_ready = false;
   // Serial.printf("Light: %d\n", valLight);
-  if (valLight <= 1000) {
+  if (valLight <= 1500) {
     digitalWrite(pinLED, HIGH);
   } else {
     digitalWrite(pinLED, LOW);
