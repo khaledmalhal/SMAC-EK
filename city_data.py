@@ -1,5 +1,15 @@
 import requests
 import json
+import influxdb_client, os, datetime
+from influxdb_client import Point
+from influxdb_client.client.write_api import SYNCHRONOUS
+from dotenv import load_dotenv
+
+load_dotenv()
+token = os.getenv("INFLUXDB_TOKEN")
+org = "EPSEVG" #your organization
+url = "http://localhost:8086"
+bucket = "SMAC-EK" #your bucket
 
 class Request:
     """
@@ -35,14 +45,20 @@ class Data:
     More information: http://datos.santander.es/dataset/?id=sensores-ambientales
     """
     def __init__(self):
+        try:
+            self.write_client = influxdb_client.InfluxDBClient(url=url, token=token, org=org)
+        except Exception as e:
+            print('Error initializing Influx client.', e)
         pass
 
     def get_data(self):
+        print("Obtaining data from source...\n")
         r = requests.get('http://datos.santander.es/api/rest/datasets/sensores_smart_env_monitoring.json?items=332')
         if r.status_code != 200:
             raise Exception("Not successful request")
         obj = r.json()
-        print(json.dumps(obj, indent=4))
+        # print(json.dumps(obj, indent=4))
+        i = 1
         for resource in obj['resources']:
             type        = resource['ayto:type']
             noise       = resource['ayto:noise']
@@ -52,15 +68,38 @@ class Data:
             latitude    = resource['ayto:latitude']
             longitude   = resource['ayto:longitude']
             modified    = resource['dc:modified']
+            if len(latitude)  > 0: latitude  = float(latitude)
+            if len(longitude) > 0: longitude = float(longitude)
+            
             if type == 'NoiseLevelObserved':
                 # Upload only noise.
-                continue
+                if len(noise) > 0: noise = float(noise)
+                point = (Point('Noise-Santander')
+                         .time(modified)
+                         .tag('sensor', 'noise')
+                         .field('noise', noise)
+                         .field('latitude', latitude)
+                         .field('longitude', longitude)
+                         .time(modified))
             elif type == 'WeatherObserved':
-                continue
                 # Upload temperature and light.
+                if len(temperature) > 0: temperature = float(temperature)
+                point = (Point('Weather-Santander')
+                         .tag('sensor', 'weather')
+                         .field('temperature', temperature)
+                         .field('latitude', latitude)
+                         .field('longitude', longitude)
+                         .time(modified))
+                if len(light) > 0: 
+                    light = float(light)
+                    if light < float(1000000):
+                        point = (point.field('light', light))
             else:
                 continue
-
+            write_api = self.write_client.write_api(write_options=SYNCHRONOUS)
+            write_api.write(bucket=bucket, org=org, record=point)
+            print("Inserting point into influx (%d of %d)" % (i, len(obj['resources'])), end='\r')
+            i = i+1
 if __name__=='__main__':
     p = Data()
     p.get_data()
