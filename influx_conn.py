@@ -62,9 +62,9 @@ def main():
         # Parse message to extract key-value
         try:
             key, value = tag_content.split(": ")
-            if key == 'IR':
-                value = int(value, 0)  # Convert the HEX value to integer
-            elif key == 'light':
+            # if key == 'IR':
+            #     value = int(value, 0)  # Convert the HEX value to integer
+            if key == 'light':
                 value = int(value)
 
         except ValueError:
