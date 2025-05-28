@@ -88,6 +88,7 @@ def main():
 
     print("Closing connection")
     client_socket.close()
+    return 0
 
 if __name__ == '__main__':
     sys.exit(main()) 
