@@ -1,30 +1,16 @@
 import pandas as pd
-import numpy as np
 
 import influxdb_client
 from influxdb_client.client.write_api import SYNCHRONOUS
 
 from sodapy import Socrata
 from datetime import *
-import pytz
 
 # @title Obtaining data from Vilanova i la Geltrú (last execution lasted one minute)
 def download_data(since:   str  = '2020-01-01T00:00:00',
                   url:     str  = "analisi.transparenciacatalunya.cat",
                   codes:   list = ['YR'],
                   cod_var: list = ['32','40','42','3','33','44','2','34','31','51','1','30','50']):
-    try:
-        if since == '2020-01-01T00:00:00':
-            df = pd.read_csv('data.csv')
-            return df
-    except Exception as e:
-        print(f'Unable to read from file.')
-    try:
-        if since == '2020-01-01T00:00:00':
-            df = pd.read_csv('unprocessed.csv')
-            return df
-    except Exception as e:
-        print(f'Unable to read unprocessed file.')
     print('\nDownloading data from open data source...')
     with Socrata(url, None, timeout=6000) as client:
         # Build a string of station codes wrapped in double quotes
@@ -38,7 +24,6 @@ def download_data(since:   str  = '2020-01-01T00:00:00',
             f"AND codi_estacio in ({codes_str})"
             f"AND codi_variable in ({vars_str})"
         )
-
         # Pagination parameters
         limit = 5000  # you can adjust batch size if needed
         offset = 0
@@ -58,18 +43,18 @@ def download_data(since:   str  = '2020-01-01T00:00:00',
 
             all_results.extend(results)
             offset += limit  # move to next batch
-    return pd.DataFrame.from_records(all_results)
+    results_df = pd.DataFrame.from_records(all_results)
+    return results_df
 
 def process_data(df: pd.DataFrame):
     # @title Preprocessing of the data
     try:
-        print(df.head())
+        print(f'Processing the following DataFrame:\n{df.head()}')
         df = df.drop_duplicates(subset=['id'])
 
         grouped = df.groupby('data_lectura')[['codi_variable', 'valor_lectura']].apply(lambda x: x)
         dates = [index[0] for index in grouped.index]
         dates = list(set(dates))
-        print(dates[0])
         format = bool(datetime.fromisoformat(dates[0]))
 
         new_df = pd.DataFrame(columns=['DATA', 'HR', 'HRn', 'HRx', 'P', 'Pn', 'T', 'Tn', 'Tx', 'Px',
@@ -95,7 +80,6 @@ def process_data(df: pd.DataFrame):
             }
             new_row = pd.DataFrame(obj)
             new_df = pd.concat([new_df, new_row], ignore_index=True)
-        print(new_df.head())
 
         new_df.drop("Unnamed: 0",   axis=1, inplace=True, errors='ignore')
         new_df.drop("Unnamed: 0.1", axis=1, inplace=True, errors='ignore')
@@ -110,25 +94,13 @@ def process_data(df: pd.DataFrame):
     new_df.set_index('DATA', inplace=True)
     new_df.sort_index(inplace=True)
 
-    new_df.to_csv('data.csv')
     return new_df
 
 def prepare_for_predict(df: pd.DataFrame, entries: int = 2*48) -> pd.DataFrame:
     new_df = df.copy()
-    last_index = df.index[-1]
-    # empty_data = {col: ['' for _ in range(entries)] for col in df.columns}
 
-    # for i in range(entries):
-    #     time = datetime.fromisoformat(last_index)
-    #     time = time + timedelta(minutes=30*(i+1))
-    #     time = time.isoformat(timespec='milliseconds')
-    #     print(time)
-    #     row = pd.DataFrame(index=[time], columns=['HR', 'HRn', 'HRx', 'P', 'Pn', 'T', 'Tn', 'Tx',
-    #                                               'Px', 'DV10', 'DVVx10', 'VV10', 'VVx10'])
-    #     new_df = pd.concat([new_df, row], ignore_index=False)
-    # print(f'Before shifting:\n{new_df.iloc[(len(new_df)-entries):len(new_df)]}\n')
-    new_df = new_df.shift(periods=entries, freq='30min')
-    # print(f'After shifting:\n{new_df.iloc[(len(new_df)-entries):len(new_df)]}')
+    # print(df.head())
+    new_df['temp_prev'] = df['T'].shift(periods=entries, freq='30min')
     return new_df
 
 def get_latest_influxdb(url: str, token: str, org: str, type: str = 'real') -> datetime:
@@ -154,7 +126,6 @@ def upload_to_influxdb(url: str, token: str, org: str, df: pd.DataFrame, type: s
 
     points = []
     for index, row in df.iterrows():
-        # time = datetime.fromisoformat(index)
         time = index - timedelta(hours=2)
         time = time.isoformat(timespec='seconds')
         p = (influxdb_client.Point("Meteocat")
