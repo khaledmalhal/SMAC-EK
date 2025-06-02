@@ -78,6 +78,7 @@ def predict(model: Lasso, df: pd.DataFrame):
     # plot_test_pred(y, y_pred)
 
     ret_y = pd.DataFrame(index=y.index, data={'T': y_pred})
+    ret_y.to_csv('predicted.csv')
     return ret_y
 
 def main():
@@ -92,10 +93,14 @@ def main():
         df = pd.read_csv('data.csv')
         df = process_data(df)
     except Exception as e:
+        df = None
         print(f'Unable to read from file.')
 
     while True:
         latest = get_latest_influxdb(url, token, org)
+        if latest is None and df is not None and len(df) > 0:
+            latest = df.tail(1).index.item().to_pydatetime()
+
         if latest is None:
             print('Getting latest data since 2020...')
             new_df = download_data()
