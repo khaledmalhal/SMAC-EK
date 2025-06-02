@@ -14,6 +14,7 @@ from time import sleep
 from datetime import *
 
 import matplotlib.pyplot as plt
+import numpy as np
 
 load_dotenv()
 token = os.getenv("INFLUXDB_TOKEN")
@@ -24,11 +25,11 @@ bucket = "SMAC-EK" #your bucket
 def wait_data(latest: datetime):
     if latest is None:
         return
-    added = latest + timedelta(minutes=30)
-    naive = added.replace(tzinfo=None)
-    diff = datetime.now() - naive
-    print(f'Sleeping for {diff.seconds}')
-    sleep(diff.seconds)
+    # added = latest + timedelta(minutes=30)
+    # naive = added.replace(tzinfo=None)
+    # diff = datetime.now() - naive
+    print(f'Sleeping for {30} minutes')
+    sleep(30*60)
 
 def plot_test_pred(y_test, y_pred):
     # Let's take ONLY 0.2% of the predicted and test data to plot it.

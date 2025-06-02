@@ -99,8 +99,9 @@ def process_data(df: pd.DataFrame):
 def prepare_for_predict(df: pd.DataFrame, entries: int = 2*48) -> pd.DataFrame:
     new_df = df.copy()
 
-    # print(df.head())
     new_df['temp_prev'] = df['T'].shift(periods=entries, freq='30min')
+    new_df = new_df.shift(periods=entries, freq='30min')
+    print(f'After shifting:\n{new_df.iloc[(len(new_df)-entries):len(new_df)]}')
     return new_df
 
 def get_latest_influxdb(url: str, token: str, org: str, type: str = 'real') -> datetime:
